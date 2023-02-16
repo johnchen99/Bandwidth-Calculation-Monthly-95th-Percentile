@@ -1,5 +1,19 @@
 #!/bin/bash
 
+#######################################################
+# yum install centos-release-scl
+# yum install centos-release-scl-rh
+# yum install devtoolset-10-gcc.x86_64 && yum install devtoolset-10-gcc-c++.x86_64
+# scl enable devtoolset-10 bash
+# yum install gcc-c++ libpcap-devel.x86_64 libpcap.x86_64 "ncurses*"
+# git clone https://github.com/raboof/nethogs
+# make
+# sudo ./src/nethogs
+# sudo make install
+# hash -r
+# sudo nethogs
+#######################################################
+
 # Set the process name
 process_name="your_process_name"
 
@@ -54,14 +68,13 @@ while true; do
     fi
 
     # Get the TCP and UDP upload bandwidths for the process using nethogs
-    tcp_bw=$(nethogs -t -s -a "$process_name" | tail -n 1 | awk '{print $2}')
-    udp_bw=$(nethogs -u -s -a "$process_name" | tail -n 1 | awk '{print $2}')
+    tcp_udp_bw=$(sudo nethogs -t -s -a "$process_name" | tail -n 1 | awk '{print $2}')
 
     # Get the current timestamp
     timestamp=$(date +%s)
 
     # Append the bandwidths and their sum to the daily output file
-    echo "$timestamp $tcp_bw $udp_bw $((tcp_bw + udp_bw))" >> "$output_dir/$daily_file"
+    echo "$timestamp $tcp_udp_bw" >> "$output_dir/$daily_file"
 
     # Check if it's the first day of the month, and calculate the 95th percentile if necessary
     if [ "$(date +%d)" -eq 1 ]; then
