@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #######################################################
+# Test: KL35
+
 # yum install centos-release-scl
 # yum install centos-release-scl-rh
 # yum install devtoolset-10-gcc.x86_64 && yum install devtoolset-10-gcc-c++.x86_64
@@ -15,10 +17,10 @@
 #######################################################
 
 # Set the process name
-process_name="your_process_name"
+process_name="dcache"
 
 # Set the output directory and file names
-output_dir="bandwidth"
+output_dir="/root/bandwidth_test"
 daily_file_prefix="bandwidth_$(date +%Y-%m-%d)"
 daily_file="$daily_file_prefix.log"
 monthly_file="95th_percentile_$(date +%Y-%m).log"
@@ -36,17 +38,20 @@ fi
 # Function to calculate the 95th percentile from the daily output files
 function calculate_95th_percentile() {
     # Get the daily bandwidth data for the current month
-    daily_data=$(cat "$output_dir/bandwidth_$(date +%Y-%m)*.log")
+    daily_data=$(cat $output_dir/bandwidth_$(date +%Y-%m)*.log)
 
-    # Calculate the total upload bandwidth for each day
-    daily_totals=$(echo "$daily_data" | awk '{print $1, $4}' | sort | uniq -c | awk '{print $2, $3}')
+    # Get all the upload bandwidth for each day
+    daily_speed=$(echo "$daily_data" |  awk '{print $2}')
 
     # Calculate the 95th percentile of the daily totals
-    percentile=$(echo "$daily_totals" | sort -k2n | awk '{s+=$2}END{print int(s*0.95)}')
+    percentile=$(echo "$daily_speed" |  sort -n | awk '{all[NR] = $0} END{print all[int(NR*0.95 - 0.5)]}')
 
     # Get the current date and time
     current_date=$(date +%Y-%m-%d)
     current_time=$(date +%H:%M:%S)
+    
+    # Get the current timestamp
+    timestamp=$(date +%s)
 
     # Check if the monthly output file exists, and create it if necessary
     if [ ! -f "$output_dir/$monthly_file" ]; then
@@ -54,7 +59,7 @@ function calculate_95th_percentile() {
     fi
 
     # Write the 95th percentile and the current date and time to the monthly output file
-    echo "$current_date $current_time $percentile" >> "$output_dir/$monthly_file"
+    echo "$current_date $current_time $timestamp $percentile" >> "$output_dir/$monthly_file"
 }
 
 # Calculate the bandwidth every five minutes
@@ -67,20 +72,22 @@ while true; do
         touch "$output_dir/$daily_file"
     fi
 
-    # Get the TCP and UDP upload bandwidths for the process using nethogs
-    tcp_udp_bw=$(sudo nethogs -t -s -a "$process_name" | tail -n 1 | awk '{print $2}')
+    # Get last 5/10 line of 10 seconds TCP and UDP upload bandwidths (KB/s)
+    tcp_udp_bw=$(nethogs -t -s -a -c 10 | grep "$process_name" | tail -n 5 | awk '{sum += $2 } END {print sum/5}')
 
     # Get the current timestamp
     timestamp=$(date +%s)
 
     # Append the bandwidths and their sum to the daily output file
+    echo "$timestamp $tcp_udp_bw"
     echo "$timestamp $tcp_udp_bw" >> "$output_dir/$daily_file"
 
     # Check if it's the first day of the month, and calculate the 95th percentile if necessary
     if [ "$(date +%d)" -eq 1 ]; then
         calculate_95th_percentile
     fi
-
+    
     # Wait for five minutes before calculating again
-    sleep 300
+    sleep 290
+
 done
