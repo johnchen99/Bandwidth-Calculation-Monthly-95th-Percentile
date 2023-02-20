@@ -16,7 +16,7 @@
 # hash -r
 # sudo nethogs
 
-## Create a Service (bandwidth_calc.service):
+## Create a Service (/usr/lib/systemd/system/bandwidth_calc.service):
 # [Unit]
 # Description=Bandwidth_Calc Service
 
@@ -25,6 +25,10 @@
 
 # [Install]
 # WantedBy=multi-user.target
+
+
+#systemctl enable bandwidth_calc
+#systemctl start bandwidth_calc
 #######################################################
 
 
