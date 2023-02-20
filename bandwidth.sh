@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #######################################################
-## Tested: KL35
+## Test: KL35
 
 ## Install Nethogs:
 # yum install centos-release-scl
