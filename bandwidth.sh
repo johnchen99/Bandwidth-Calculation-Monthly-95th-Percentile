@@ -1,8 +1,9 @@
 #!/bin/bash
 
 #######################################################
-# Test: KL35
+## Tested: KL35
 
+## Install Nethogs:
 # yum install centos-release-scl
 # yum install centos-release-scl-rh
 # yum install devtoolset-10-gcc.x86_64 && yum install devtoolset-10-gcc-c++.x86_64
@@ -14,13 +15,24 @@
 # sudo make install
 # hash -r
 # sudo nethogs
+
+## Create a Service (bandwidth_calc.service):
+# [Unit]
+# Description=Bandwidth_Calc Service
+
+# [Service]
+# ExecStart=/root/bandwidth_calc.sh
+
+# [Install]
+# WantedBy=multi-user.target
 #######################################################
+
 
 # Set the process name
 process_name="dcache"
 
 # Set the output directory and file names
-output_dir="/root/bandwidth_test"
+output_dir="/root/bandwidth_calc"
 daily_file_prefix="bandwidth_$(date +%Y-%m-%d)"
 daily_file="$daily_file_prefix.log"
 monthly_file="95th_percentile_$(date +%Y-%m).log"
@@ -72,7 +84,7 @@ while true; do
         touch "$output_dir/$daily_file"
     fi
 
-    # Get last 5/10 line of 10 seconds TCP and UDP upload bandwidths (KB/s)
+    # Get average of last 5 lines of 10 seconds TCP and UDP upload bandwidths (KB/s)
     tcp_udp_bw=$(nethogs -t -s -a -c 10 | grep "$process_name" | tail -n 5 | awk '{sum += $2 } END {print sum/5}')
 
     # Get the current timestamp
