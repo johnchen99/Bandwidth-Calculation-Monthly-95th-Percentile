@@ -89,7 +89,14 @@ while true; do
     fi
 
     # Get average of last 5 lines of 10 seconds TCP and UDP upload bandwidths (KB/s)
-    tcp_udp_bw=$(nethogs -t -s -a -c 10 | grep "$process_name" | tail -n 5 | awk '{sum += $2 } END {print sum/5}')
+    tcp_udp_bw=$(nethogs -t -s -a -c 1 | grep "$process_name" | tail -n 5 | awk '{sum += $2 } END {print sum/5}')
+
+
+
+
+
+
+
 
     # Get the current timestamp
     timestamp=$(date +%s)
