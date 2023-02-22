@@ -22,6 +22,7 @@
 import os
 import time
 import sys
+import datetime
 import numpy as np
 import subprocess
 import logging
@@ -34,7 +35,6 @@ MONTHLY_DIR = os.path.join(DIR, "monthly")
 INTERVAL = 300
 # Nethogs command (MB)
 NETHOGS_START_COMMAND = 'nethogs -v 3 -t -a | grep --line-buffered {} | cut -f 2-3 &> {}/$(date +"%Y-%m-%d")_{}_temp &'
-
 
 # Check if DIR exists, else create
 def create_directory(path):
@@ -58,6 +58,31 @@ def kill_nethogs():
     subprocess.run(('pkill -f "nethogs"'), shell=True)
     print("Killing all nethogs")
 
+# Check if it's the first day of the month at 00:00
+def is_first_day_of_month():
+    now = datetime.datetime.now()
+    return now.day == 1 and now.hour == 0 and now.minute == 0 and now.second == 0
+
+# Record the monthly 95th percentile
+def record_monthly_traffic():
+    # Check if it's the first day of the month at 00:00
+    if not is_first_day_of_month():
+        return
+
+    # Get the previous month's directory name
+    PREV_MONTH_DIR = datetime.datetime.now().replace(day=1) - datetime.timedelta(days=1)
+    PREV_MONTH_DIR = PREV_MONTH_DIR.strftime('%Y-%m')
+
+    # Calculate the 95th percentile for each process in the DAILY file for the previous month
+    for process_name in PROCESS_NAME_LIST:
+        daily_file = os.path.join(DAILY_DIR, "{}_{}_daily_traffic".format(PREV_MONTH_DIR, process_name))
+        if os.path.exists(daily_file):
+            data = np.loadtxt(daily_file, delimiter=" ", usecols=[1])
+            percentile_95 = np.percentile(data, 95)
+            monthly_file = os.path.join(MONTHLY_DIR, "{}_{}_monthly_traffic_95th".format(PREV_MONTH_DIR, process_name))
+            with open(monthly_file, "w") as f:
+                f.write(str(percentile_95))
+
 # Record the daily total sent traffic every 5 minutes
 def record_traffic():
     while True:
@@ -68,7 +93,8 @@ def record_traffic():
         sleep_time = INTERVAL - now % INTERVAL
 
         # Sleep until the next 5 minute 
-        time.sleep(sleep_time)
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
         # Current Date
         today_date = time.strftime('%Y-%m-%d')
@@ -92,14 +118,17 @@ def record_traffic():
 
                     with open(os.path.join(DAILY_DIR, "{}_{}_daily_traffic".format(today_date,process_name)), "a") as f:
                         f.write(("{} {}\n").format(time.strftime('%Y-%m-%d %H:%M:%S'),last_log_line))                 
+        
+        # Record monthly traffic
+        record_monthly_traffic()
 
         # Restart nethogs
         try:
             start_nethogs()
             print ("2. Spawned initial nethogs")
-
         except subprocess.CalledProcessError as e:
             logging.error(("2. Error launching nethogs: {}").format(e))
+
 
 def main():
     # Set up logging
@@ -116,7 +145,6 @@ def main():
 
     except subprocess.CalledProcessError as e:
         logging.error(("1. Error launching nethogs: {}").format(e))
-
 
 if __name__ == '__main__':
     try:
