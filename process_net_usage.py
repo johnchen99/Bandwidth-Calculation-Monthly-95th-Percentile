@@ -19,10 +19,12 @@
 # hash -r
 # sudo nethogs
 #######################################################
+
 import os
 import time
 import sys
 import datetime
+from calendar import calendar
 import numpy as np
 import subprocess
 import logging
@@ -70,18 +72,25 @@ def record_monthly_traffic():
         return
 
     # Get the previous month's directory name
-    PREV_MONTH_DIR = datetime.datetime.now().replace(day=1) - datetime.timedelta(days=1)
-    PREV_MONTH_DIR = PREV_MONTH_DIR.strftime('%Y-%m')
+    prev_month_dir = (datetime.datetime.now().replace(day=1) - datetime.timedelta(days=1)).strftime('%Y-%m')
 
-    # Calculate the 95th percentile for each process in the DAILY file for the previous month
+    # Get the days of the previous month
+    prev_month_num_days = calendar.monthrange(datetime.datetime.now().year, datetime.datetime.now().month - 1)[1]
+    prev_month_days = [datetime.date(datetime.datetime.now().year, datetime.datetime.now().month - 1, day) for day in range(1, prev_month_num_days + 1)]
+
+    # Calculate the 95th percentile for each process for each day in the previous month
     for process_name in PROCESS_NAME_LIST:
-        daily_file = os.path.join(DAILY_DIR, "{}_{}_daily_traffic".format(PREV_MONTH_DIR, process_name))
-        if os.path.exists(daily_file):
-            data = np.loadtxt(daily_file, delimiter=" ", usecols=[1])
-            percentile_95 = np.percentile(data, 95)
-            monthly_file = os.path.join(MONTHLY_DIR, "{}_{}_monthly_traffic_95th".format(PREV_MONTH_DIR, process_name))
-            with open(monthly_file, "w") as f:
-                f.write(str(percentile_95))
+        daily_traffic_files = [os.path.join(DAILY_DIR, "{}_{}_daily_traffic".format(day.strftime('%Y-%m-%d'), process_name)) for day in prev_month_days]
+        daily_traffic_files = [file for file in daily_traffic_files if os.path.exists(file)]
+
+        if len(daily_traffic_files) == 0:
+            continue
+
+        daily_traffic_data = np.concatenate([np.loadtxt(file, delimiter=" ", usecols=[1]) for file in daily_traffic_files])
+        percentile_95 = np.percentile(daily_traffic_data, 95)
+        monthly_traffic_file = os.path.join(MONTHLY_DIR, "{}_{}_monthly_traffic_95th".format(prev_month_dir, process_name))
+        with open(monthly_traffic_file, "w") as f:
+            f.write(str(percentile_95))
 
 # Record the daily total sent traffic every 5 minutes
 def record_traffic():
@@ -128,7 +137,6 @@ def record_traffic():
             print ("2. Spawned initial nethogs")
         except subprocess.CalledProcessError as e:
             logging.error(("2. Error launching nethogs: {}").format(e))
-
 
 def main():
     # Set up logging
