@@ -18,6 +18,17 @@
 # sudo make install
 # hash -r
 # sudo nethogs
+
+## Create service
+## /etc/systemd/system/proc_net_usage.service
+# [Unit]
+# Description=Process Net Usage Calculation (Daily/Monthly 95th)
+# After=multi-user.target
+# [Service]
+# Restart=always
+# ExecStart=/usr/bin/python3 /root/proc_net_usage.py
+# [Install]
+# WantedBy=multi-user.target
 #######################################################
 
 import os
