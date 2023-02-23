@@ -83,7 +83,7 @@ def record_monthly_traffic():
         return
 
     # Get the previous month's directory name
-    prev_month_dir = (datetime.datetime.now().replace(day=1) - datetime.timedelta(days=1)).strftime('%Y-%m')
+    PREV_MONTH_DIR = (datetime.datetime.now().replace(day=1) - datetime.timedelta(days=1)).strftime('%Y-%m')
 
     # Get the days of the previous month
     prev_month_num_days = calendar.monthrange(datetime.datetime.now().year, datetime.datetime.now().month - 1)[1]
@@ -91,17 +91,19 @@ def record_monthly_traffic():
 
     # Calculate the 95th percentile for each process for each day in the previous month
     for process_name in PROCESS_NAME_LIST:
-        daily_traffic_files = [os.path.join(DAILY_DIR, "{}_{}_daily_traffic".format(day.strftime('%Y-%m-%d'), process_name)) for day in prev_month_days]
-        daily_traffic_files = [file for file in daily_traffic_files if os.path.exists(file)]
-
-        if len(daily_traffic_files) == 0:
-            continue
-
-        daily_traffic_data = np.concatenate([np.loadtxt(file, delimiter=" ", usecols=[1]) for file in daily_traffic_files])
-        percentile_95 = np.percentile(daily_traffic_data, 95)
-        monthly_traffic_file = os.path.join(MONTHLY_DIR, "{}_{}_monthly_traffic_95th".format(prev_month_dir, process_name))
-        with open(monthly_traffic_file, "w") as f:
-            f.write(str(percentile_95))
+        for day in prev_month_days:
+            daily_traffic_file = os.path.join(DAILY_DIR, "{}_{}_daily_traffic".format(day.strftime('%Y-%m-%d'), process_name))
+            if not os.path.exists(daily_traffic_file):
+                continue
+            try:
+                daily_traffic_data = np.loadtxt(daily_traffic_file, delimiter=" ", usecols=[1])
+            except FileNotFoundError:
+                logging.error("File not found error when trying to load traffic data for process {} on {}".format(process_name, day))
+                continue
+            percentile_95 = np.percentile(daily_traffic_data, 95)
+            monthly_traffic_file = os.path.join(MONTHLY_DIR, "{}_{}_monthly_traffic_95th".format(PREV_MONTH_DIR, process_name))
+            with open(monthly_traffic_file, "w") as f:
+                f.write(str(percentile_95))
 
 # Record the daily total sent traffic every 5 minutes
 def record_traffic():
@@ -133,7 +135,7 @@ def record_traffic():
                         pass
                     try:
                         last_log_line = line
-                    except Exception:
+                    except IndexError:
                         last_log_line = ""
 
                     with open(os.path.join(DAILY_DIR, "{}_{}_daily_traffic".format(today_date,process_name)), "a") as f:
@@ -151,7 +153,10 @@ def record_traffic():
 
 def main():
     # Set up logging
-    logging.basicConfig(filename=os.path.join(DIR, "python_log.txt"), level=logging.ERROR)
+    logging.basicConfig(filename=os.path.join(DIR, "python_log.txt"), 
+                        level=logging.ERROR,
+                        format='%(asctime)s %(levelname)-8s %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
 
     # Create directories
     create_directory(DIR)
